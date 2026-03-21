@@ -5,6 +5,10 @@ data "aws_partition" "this" {
   count = var.create ? 1 : 0
 }
 
+data "aws_region" "this" {
+  count = var.create ? 1 : 0
+}
+
 data "aws_iam_policy_document" "assume_role" {
   count = var.create ? 1 : 0
 
