@@ -26,6 +26,9 @@ locals {
       POWERTOOLS_SERVICE_NAME   = local.function_name
       POWERTOOLS_TRACE_DISABLED = tostring(!var.enable_tracing)
     },
+    local.powertools_log_event ? {
+      POWERTOOLS_LOGGER_LOG_EVENT = "true"
+    } : {},
     var.enable_powertools_development_mode ? {
       POWERTOOLS_DEBUG = "true"
       POWERTOOLS_DEV   = "true"
@@ -33,6 +36,7 @@ locals {
   ) : {}
 
   powertools_layer_runtime = replace(local.lambda_python_runtime, ".", "")
+  powertools_log_event     = var.enable_logging && (var.enable_powertools_development_mode || local.lambda_log_level == "DEBUG")
 }
 
 resource "aws_cloudwatch_log_group" "this" {

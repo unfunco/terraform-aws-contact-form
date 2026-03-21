@@ -21,7 +21,7 @@ variable "enable_logging" {
 
 variable "enable_powertools_development_mode" {
   default     = false
-  description = "Enable Powertools development mode and debug logging for the Lambda function."
+  description = "Enable Powertools development mode, debug logging, and Powertools event logging for the Lambda function."
   type        = bool
 }
 
@@ -45,7 +45,7 @@ variable "kms_key_arn" {
 
 variable "log_level" {
   default     = "INFO"
-  description = "Application log level for Lambda and Powertools. Valid values: TRACE, DEBUG, INFO, WARN, ERROR, FATAL."
+  description = "Application log level for Lambda and Powertools. Valid values: TRACE, DEBUG, INFO, WARN, ERROR, FATAL. DEBUG also enables Powertools event logging."
   nullable    = false
   type        = string
 

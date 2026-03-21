@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Daniel Morris <daniel@honestempire.com>
+# SPDX-License-Identifier: MIT
+
 import json
 import os
 
@@ -9,8 +12,7 @@ if ENABLE_LOGGING:
         from aws_lambda_powertools import Logger
     except ModuleNotFoundError as exc:
         raise RuntimeError(
-            "POWERTOOLS_SERVICE_NAME is set and ENABLE_LOGGING is true, "
-            "but aws-lambda-powertools is unavailable. "
+            "ENABLE_LOGGING is true but aws-lambda-powertools is unavailable. "
             "Attach the Powertools Lambda layer or disable logging."
         ) from exc
     logger = Logger()
@@ -30,9 +32,9 @@ else:
     tracer = None
 
 
-def _handle_request(event, _context):
+def _handle_request(_event, _context):
     if logger is not None:
-        logger.info("Contact form request", extra={"event": event})
+        logger.info("Contact has been made")
 
     return {
         "statusCode": 501,
