@@ -49,19 +49,20 @@ output "contact_form_url" {
 
 ### Inputs
 
-| Name                                  | Description                                                                                            | Type          | Default          | Required |
-|---------------------------------------|--------------------------------------------------------------------------------------------------------|---------------|------------------|:--------:|
-| create                                | Enable/disable the creation of all resources.                                                          | `bool`        | `true`           |    no    |
-| enable\_logging                       | Enable JSON application logging configuration and Powertools logger support for the Lambda function.   | `bool`        | `true`           |    no    |
-| enable\_powertools\_development\_mode | Enable Powertools development mode and debug logging for the Lambda function.                          | `bool`        | `false`          |    no    |
-| enable\_tracing                       | Enable AWS X-Ray tracing and Powertools tracer support for the Lambda function.                        | `bool`        | `false`          |    no    |
-| environment\_variables                | Additional environment variables to set on the Lambda function.                                        | `map(string)` | `{}`             |    no    |
-| kms\_key\_arn                         | ARN of the KMS key to use for encrypting the log group.                                                | `string`      | `null`           |    no    |
-| log\_level                            | Application log level for Lambda and Powertools. Valid values: TRACE, DEBUG, INFO, WARN, ERROR, FATAL. | `string`      | `"INFO"`         |    no    |
-| log\_retention\_in\_days              | Number of days to retain logs in CloudWatch Log Group.                                                 | `number`      | `365`            |    no    |
-| memory\_size                          | Amount of memory, in MB, allocated to the Lambda function.                                             | `number`      | `128`            |    no    |
-| name                                  | Name to use for the Lambda function and related resources.                                             | `string`      | `"contact-form"` |    no    |
-| tags                                  | Tags to be applied to all applicable resources.                                                        | `map(string)` | `{}`             |    no    |
+| Name                                  | Description                                                                                            | Type           | Default          | Required |
+|---------------------------------------|--------------------------------------------------------------------------------------------------------|----------------|------------------|:--------:|
+| cors\_allow\_origins                  | List of allowed origins for CORS.                                                                      | `list(string)` | ```[ "*" ]```    |    no    |
+| create                                | Enable/disable the creation of all resources.                                                          | `bool`         | `true`           |    no    |
+| enable\_logging                       | Enable JSON application logging configuration and Powertools logger support for the Lambda function.   | `bool`         | `true`           |    no    |
+| enable\_powertools\_development\_mode | Enable Powertools development mode and debug logging for the Lambda function.                          | `bool`         | `false`          |    no    |
+| enable\_tracing                       | Enable AWS X-Ray tracing and Powertools tracer support for the Lambda function.                        | `bool`         | `false`          |    no    |
+| environment\_variables                | Additional environment variables to set on the Lambda function.                                        | `map(string)`  | `{}`             |    no    |
+| kms\_key\_arn                         | ARN of the KMS key to use for encrypting the log group.                                                | `string`       | `null`           |    no    |
+| log\_level                            | Application log level for Lambda and Powertools. Valid values: TRACE, DEBUG, INFO, WARN, ERROR, FATAL. | `string`       | `"INFO"`         |    no    |
+| log\_retention\_in\_days              | Number of days to retain logs in CloudWatch Log Group.                                                 | `number`       | `365`            |    no    |
+| memory\_size                          | Amount of memory, in MB, allocated to the Lambda function.                                             | `number`       | `128`            |    no    |
+| name                                  | Name to use for the Lambda function and related resources.                                             | `string`       | `"contact-form"` |    no    |
+| tags                                  | Tags to be applied to all applicable resources.                                                        | `map(string)`  | `{}`             |    no    |
 
 ### Outputs
 
