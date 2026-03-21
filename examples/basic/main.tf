@@ -7,8 +7,8 @@ module "contact_form" {
   source = "../.."
 
   enable_tracing        = true
-  email_recipients      = ["hidden@example.com"]
-  log_level             = "DEBUG"
-  log_retention_in_days = 7
-  ses_source_email      = "no-reply@example.com"
+  email_recipients      = var.email_recipients
+  log_level             = var.log_level
+  log_retention_in_days = var.log_retention_in_days
+  ses_source_email      = var.ses_source_email
 }
