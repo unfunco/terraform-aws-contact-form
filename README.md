@@ -33,12 +33,25 @@ output "contact_form_url" {
 ```html
 
 <form action="https://<>" method="post">
-  <input name="email" type="email"/>
-  <input name="name" type="text"/>
-  <textarea name="message"></textarea>
+  <input name="email" type="email" required />
+  <input name="name" type="text" required />
+  <textarea name="message" required></textarea>
   <button type="submit">Send</button>
 </form>
 ```
+
+The endpoint currently expects exactly three fields: `name`, `email`, and
+`message`. Standard HTML form submissions
+(`application/x-www-form-urlencoded`) and JSON requests are supported.
+
+```sh
+curl -X POST https://<> \
+  -H 'content-type: application/json' \
+  -d '{"name":"Alice Example","email":"alice@example.com","message":"Hello"}'
+```
+
+Successful submissions return `200 OK` with a JSON confirmation message.
+Validation failures return a JSON `4xx` response describing the problem.
 
 <!-- x-release-please-end -->
 <!-- BEGIN_TF_DOCS -->
