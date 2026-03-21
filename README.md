@@ -19,7 +19,7 @@ Function URL.
 ```terraform
 module "contact_form" {
   source  = "unfunco/contact-form/aws"
-  version = "0.0.0"
+  version = "0.1.0"
 
   email_recipients = ["hello@example.com"]
   ses_source_email = "no-reply@example.com"
