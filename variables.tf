@@ -13,6 +13,19 @@ variable "create" {
   type        = bool
 }
 
+variable "email_recipients" {
+  default     = []
+  description = "List of emails to receive notifications. Requires ses_source_email when not empty."
+  type        = list(string)
+
+  validation {
+    condition = alltrue([
+      for email in var.email_recipients : can(regex("^[^@\\s]+@[^@\\s]+$", email))
+    ])
+    error_message = "email_recipients must contain valid email addresses."
+  }
+}
+
 variable "enable_logging" {
   default     = true
   description = "Enable JSON application logging configuration and Powertools logger support for the Lambda function."
@@ -71,6 +84,22 @@ variable "name" {
   default     = "contact-form"
   description = "Name to use for the Lambda function and related resources."
   type        = string
+}
+
+variable "ses_source_email" {
+  default     = null
+  description = "Verified SES sender address used for notifications. Required when email_recipients is not empty."
+  type        = string
+
+  validation {
+    condition     = var.ses_source_email == null || can(regex("^[^@\\s]+@[^@\\s]+$", var.ses_source_email))
+    error_message = "ses_source_email must be a valid email address when set."
+  }
+
+  validation {
+    condition     = !var.create || length(var.email_recipients) == 0 || var.ses_source_email != null
+    error_message = "ses_source_email must be set when email_recipients is not empty."
+  }
 }
 
 variable "tags" {
