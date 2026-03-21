@@ -10,7 +10,9 @@ Thumbs.db
 *.tfvars
 *_override.tf
 *_override.tf.json
+.contact-form-*.zip
 .terraform.d/
+.terraform.lock.hcl
 .terraform.tfstate.lock.info
 .terraform/
 .terraformrc
