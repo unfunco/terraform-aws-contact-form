@@ -4,17 +4,27 @@
 locals {
   default_tags = merge({ "terraform-module" = "unfunco/terraform-aws-contact-form" }, var.tags)
 
-  enable_powertools = var.enable_logging || var.enable_tracing
+  email_notifications_enabled = length(var.email_recipients) > 0
+  enable_powertools           = var.enable_logging || var.enable_tracing
 
   function_name = var.name
 
-  lambda_architecture     = "arm64"
-  lambda_environment_vars = merge(var.environment_variables, local.powertools_environment_vars)
-  lambda_log_level        = upper(var.log_level)
-  lambda_output_path      = format("%s/.contact-form-%s.zip", path.module, var.name)
-  lambda_python_runtime   = "python3.14"
-  lambda_role_name        = format("%s-lambda", var.name)
-  lambda_source_file      = format("%s/lambda/handler.py", path.module)
+  lambda_architecture = "arm64"
+
+  lambda_environment_vars = merge(
+    var.environment_variables,
+    local.powertools_environment_vars,
+    var.create && local.email_notifications_enabled ? {
+      EMAIL_RECIPIENTS_SSM_PARAMETER_ARN = aws_ssm_parameter.email_recipients[0].arn
+      SES_SOURCE_EMAIL                   = var.ses_source_email
+    } : {}
+  )
+
+  lambda_log_level      = upper(var.log_level)
+  lambda_output_path    = format("%s/.contact-form-%s.zip", path.module, var.name)
+  lambda_python_runtime = "python3.14"
+  lambda_role_name      = format("%s-lambda", var.name)
+  lambda_source_file    = format("%s/lambda/handler.py", path.module)
 
   log_group_name = format("/aws/lambda/%s", var.name)
 
@@ -37,6 +47,20 @@ locals {
 
   powertools_layer_runtime = replace(local.lambda_python_runtime, ".", "")
   powertools_log_event     = var.enable_logging && (var.enable_powertools_development_mode || local.lambda_log_level == "DEBUG")
+  ses_source_domain        = try(split("@", var.ses_source_email)[1], null)
+  ses_identity_names = local.email_notifications_enabled ? distinct(flatten([
+    var.ses_source_email != null ? [var.ses_source_email] : [],
+    local.ses_source_domain != null ? [local.ses_source_domain] : [],
+  ])) : []
+  ses_identity_arns = var.create && local.email_notifications_enabled ? [
+    for identity in local.ses_identity_names : format(
+      "arn:%s:ses:%s:%s:identity/%s",
+      data.aws_partition.this[0].partition,
+      data.aws_region.this[0].region,
+      data.aws_caller_identity.this[0].account_id,
+      identity,
+    )
+  ] : []
 }
 
 resource "aws_cloudwatch_log_group" "this" {
@@ -61,34 +85,34 @@ resource "aws_iam_role" "this" {
   tags               = local.default_tags
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+resource "aws_iam_role_policy" "this" {
   count = var.create ? 1 : 0
 
-  policy_arn = format("arn:%s:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole", data.aws_partition.this[0].partition)
-  role       = aws_iam_role.this[0].name
+  name   = format("%s-execution", local.function_name)
+  policy = data.aws_iam_policy_document.this[0].json
+  role   = aws_iam_role.this[0].name
 }
 
-resource "aws_iam_role_policy_attachment" "xray_daemon_write_access" {
-  count = var.create && var.enable_tracing ? 1 : 0
+resource "aws_ssm_parameter" "email_recipients" {
+  count = var.create && local.email_notifications_enabled ? 1 : 0
 
-  policy_arn = format("arn:%s:iam::aws:policy/AWSXRayDaemonWriteAccess", data.aws_partition.this[0].partition)
-  role       = aws_iam_role.this[0].name
+  description = "List of email recipients for contact form notifications."
+  key_id      = var.kms_key_arn
+  name        = format("/contact-form/%s/email-recipients", var.name)
+  tags        = local.default_tags
+  type        = "SecureString"
+  value       = join(",", var.email_recipients)
 }
 
 resource "aws_lambda_function" "this" {
   count = var.create ? 1 : 0
-
-  depends_on = [
-    aws_cloudwatch_log_group.this,
-    aws_iam_role_policy_attachment.lambda_basic_execution,
-    aws_iam_role_policy_attachment.xray_daemon_write_access,
-  ]
 
   architectures    = [local.lambda_architecture]
   description      = "Contact form handler."
   filename         = data.archive_file.lambda[0].output_path
   function_name    = local.function_name
   handler          = "handler.lambda_handler"
+  kms_key_arn      = var.kms_key_arn
   memory_size      = var.memory_size
   package_type     = "Zip"
   role             = aws_iam_role.this[0].arn
