@@ -1,0 +1,21 @@
+# General.
+.DS_Store
+.idea/
+Thumbs.db
+
+# Terraform.
+*.tfout
+*.tfstate
+*.tfstate.*
+*.tfvars
+*_override.tf
+*_override.tf.json
+.terraform.d/
+.terraform.tfstate.lock.info
+.terraform/
+.terraformrc
+crash.*.log
+crash.log
+override.tf
+override.tf.json
+terraform.rc

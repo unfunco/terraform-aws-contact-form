@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+- package-ecosystem: github-actions
+  commit-message:
+    prefix: chore
+    prefix-development: chore
+  directory: "/"
+  labels:
+  - chore 🧹
+  pull-request-branch-name:
+    separator: /
+  schedule:
+    day: sunday
+    interval: weekly
