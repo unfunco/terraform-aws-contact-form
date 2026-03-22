@@ -8,6 +8,7 @@ locals {
   enable_powertools           = var.enable_logging || var.enable_tracing
 
   function_name = var.name
+  kebab         = can(regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", var.name))
 
   lambda_architecture = "arm64"
 
@@ -23,7 +24,7 @@ locals {
   lambda_log_level      = upper(var.log_level)
   lambda_output_path    = format("%s/.contact-form-%s.zip", path.module, var.name)
   lambda_python_runtime = "python3.14"
-  lambda_role_name      = format("%s-lambda", var.name)
+  lambda_role_name      = local.kebab ? format("%s-lambda", var.name) : format("%sLambda", var.name)
   lambda_source_file    = format("%s/lambda/handler.py", path.module)
 
   log_group_name = format("/aws/lambda/%s", var.name)
@@ -88,7 +89,7 @@ resource "aws_iam_role" "this" {
 resource "aws_iam_role_policy" "this" {
   count = var.create ? 1 : 0
 
-  name   = format("%s-execution", local.function_name)
+  name   = local.kebab ? format("%s-execution", local.function_name) : format("%sExecution", local.function_name)
   policy = data.aws_iam_policy_document.this[0].json
   role   = aws_iam_role.this[0].name
 }
