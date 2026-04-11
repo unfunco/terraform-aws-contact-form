@@ -14,6 +14,12 @@ and protected by AWS WAF.
 
 ### Installation and usage
 
+See [`examples/minimal`](./examples/minimal) for the smallest deployable setup,
+or [`examples/static-website`](./examples/static-website) to route submissions
+through `unfunco/static-website/aws`.
+
+#### Minimal
+
 <!-- x-release-please-start-version -->
 
 ```terraform
@@ -43,6 +49,8 @@ output "contact_form_url" {
   <button type="submit">Send</button>
 </form>
 ```
+
+#### Behind `unfunco/static-website/aws`
 
 ```terraform
 module "contact_form" {
