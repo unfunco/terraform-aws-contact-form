@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 locals {
+  cloudfront_origin_id = format("%s-origin", local.function_name)
+  cloudfront_web_acl_arn = var.create ? (
+    var.waf_web_acl_arn != null ? var.waf_web_acl_arn : try(aws_wafv2_web_acl.this[0].arn, null)
+  ) : null
+  create_managed_waf = var.create && var.create_waf && var.waf_web_acl_arn == null
   default_tags = merge({
     "terraform-module" = "unfunco/terraform-aws-contact-form"
   }, var.tags)
@@ -33,6 +38,10 @@ locals {
   lambda_python_runtime = "python3.14"
   lambda_role_name      = local.kebab ? format("%s-lambda", var.name) : format("%sLambda", var.name)
   lambda_source_file    = format("%s/lambda/handler.py", path.module)
+  lambda_url_domain_name = try(
+    trimsuffix(trimprefix(aws_lambda_function_url.this[0].function_url, "https://"), "/"),
+    null,
+  )
 
   log_group_name = format("/aws/lambda/%s", var.name)
 
@@ -69,6 +78,13 @@ locals {
       identity,
     )
   ] : []
+
+  use_cloudfront_origin_protection = (
+    var.create_cloudfront_distribution ||
+    var.allow_all_cloudfront_distributions ||
+    length(var.trusted_cloudfront_distribution_arns) > 0
+  )
+  function_url_auth_type = local.use_cloudfront_origin_protection ? "AWS_IAM" : "NONE"
 }
 
 resource "aws_cloudwatch_log_group" "this" {
@@ -163,10 +179,20 @@ resource "aws_lambda_function" "this" {
   }
 }
 
+resource "aws_cloudfront_origin_access_control" "this" {
+  count = var.create && local.use_cloudfront_origin_protection ? 1 : 0
+
+  description                       = format("Origin access control for the %s contact form Lambda Function URL.", local.function_name)
+  name                              = local.kebab ? format("%s-origin-access-control", var.name) : format("%sOriginAccessControl", var.name)
+  origin_access_control_origin_type = "lambda"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 resource "aws_lambda_function_url" "this" {
   count = var.create ? 1 : 0
 
-  authorization_type = "NONE"
+  authorization_type = local.function_url_auth_type
   function_name      = aws_lambda_function.this[0].function_name
 
   cors {
@@ -176,9 +202,246 @@ resource "aws_lambda_function_url" "this" {
   }
 }
 
-resource "aws_lambda_permission" "function_url" {
-  count      = var.create ? 1 : 0
-  depends_on = [aws_lambda_function_url.this]
+resource "aws_wafv2_web_acl" "this" {
+  provider = aws.us_east_1
+  count    = local.create_managed_waf ? 1 : 0
+
+  name        = local.kebab ? format("%s-web-acl", var.name) : format("%sWebAcl", var.name)
+  description = format("Protects the public CloudFront distribution for the %s contact form endpoint.", local.function_name)
+  scope       = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "BlockUnexpectedMethods"
+    priority = 0
+
+    action {
+      block {}
+    }
+
+    statement {
+      not_statement {
+        statement {
+          or_statement {
+            statement {
+              byte_match_statement {
+                positional_constraint = "EXACTLY"
+                search_string         = "OPTIONS"
+
+                field_to_match {
+                  method {}
+                }
+
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+
+            statement {
+              byte_match_statement {
+                positional_constraint = "EXACTLY"
+                search_string         = "POST"
+
+                field_to_match {
+                  method {}
+                }
+
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "BlockUnexpectedMethods"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesAmazonIpReputationList"
+    priority = 10
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAmazonIpReputationList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AmazonIpReputationList"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 20
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "KnownBadInputsRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 30
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "CommonRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "RateLimitPerIP"
+    priority = 40
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        aggregate_key_type = "IP"
+        limit              = var.waf_rate_limit
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimitPerIP"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  dynamic "rule" {
+    for_each = var.enable_waf_bot_control ? [1] : []
+
+    content {
+      name     = "AWSManagedRulesBotControlRuleSet"
+      priority = 50
+
+      override_action {
+        none {}
+      }
+
+      statement {
+        managed_rule_group_statement {
+          name        = "AWSManagedRulesBotControlRuleSet"
+          vendor_name = "AWS"
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "BotControlRuleSet"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = replace(format("%sWebAcl", local.function_name), "-", "")
+    sampled_requests_enabled   = true
+  }
+
+  tags = local.default_tags
+}
+
+resource "aws_cloudfront_distribution" "this" {
+  count = var.create && var.create_cloudfront_distribution ? 1 : 0
+
+  comment             = format("Contact form endpoint for %s.", local.function_name)
+  enabled             = true
+  http_version        = "http2and3"
+  is_ipv6_enabled     = true
+  price_class         = var.cloudfront_price_class
+  tags                = local.default_tags
+  wait_for_deployment = true
+  web_acl_id          = local.cloudfront_web_acl_arn
+
+  default_cache_behavior {
+    allowed_methods          = ["OPTIONS", "POST"]
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled[0].id
+    cached_methods           = ["OPTIONS"]
+    compress                 = true
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header[0].id
+    target_origin_id         = local.cloudfront_origin_id
+    viewer_protocol_policy   = "redirect-to-https"
+  }
+
+  origin {
+    domain_name              = trimsuffix(trimprefix(aws_lambda_function_url.this[0].function_url, "https://"), "/")
+    origin_access_control_id = aws_cloudfront_origin_access_control.this[0].id
+    origin_id                = local.cloudfront_origin_id
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 30
+    }
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+    minimum_protocol_version       = "TLSv1.2_2021"
+  }
+}
+
+resource "aws_lambda_permission" "function_url_public" {
+  count = var.create && !local.use_cloudfront_origin_protection ? 1 : 0
 
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.this[0].function_name
@@ -187,13 +450,76 @@ resource "aws_lambda_permission" "function_url" {
   statement_id           = "AllowPublicFunctionUrl"
 }
 
-resource "aws_lambda_permission" "function_url_invoke" {
-  count      = var.create ? 1 : 0
-  depends_on = [aws_lambda_function_url.this]
+resource "aws_lambda_permission" "function_url_public_invoke" {
+  count = var.create && !local.use_cloudfront_origin_protection ? 1 : 0
 
   action                   = "lambda:InvokeFunction"
   function_name            = aws_lambda_function.this[0].function_name
   invoked_via_function_url = true
   principal                = "*"
   statement_id             = "AllowPublicFunctionUrlInvoke"
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_managed" {
+  count = var.create && var.create_cloudfront_distribution ? 1 : 0
+
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.this[0].function_name
+  function_url_auth_type = "AWS_IAM"
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = aws_cloudfront_distribution.this[0].arn
+  statement_id           = "AllowManagedCloudFrontFunctionUrl"
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_managed_invoke" {
+  count = var.create && var.create_cloudfront_distribution ? 1 : 0
+
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.this[0].function_name
+  invoked_via_function_url = true
+  principal                = "cloudfront.amazonaws.com"
+  source_arn               = aws_cloudfront_distribution.this[0].arn
+  statement_id             = "AllowManagedCloudFrontFunctionUrlInvoke"
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_any" {
+  count = var.create && !var.create_cloudfront_distribution && var.allow_all_cloudfront_distributions ? 1 : 0
+
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.this[0].function_name
+  function_url_auth_type = "AWS_IAM"
+  principal              = "cloudfront.amazonaws.com"
+  statement_id           = "AllowAnyCloudFrontFunctionUrl"
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_any_invoke" {
+  count = var.create && !var.create_cloudfront_distribution && var.allow_all_cloudfront_distributions ? 1 : 0
+
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.this[0].function_name
+  invoked_via_function_url = true
+  principal                = "cloudfront.amazonaws.com"
+  statement_id             = "AllowAnyCloudFrontFunctionUrlInvoke"
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_trusted" {
+  for_each = var.create ? { for arn in var.trusted_cloudfront_distribution_arns : arn => arn } : {}
+
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.this[0].function_name
+  function_url_auth_type = "AWS_IAM"
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = each.value
+  statement_id           = format("AllowCloudFrontUrl%s", substr(md5(each.value), 0, 12))
+}
+
+resource "aws_lambda_permission" "function_url_cloudfront_trusted_invoke" {
+  for_each = var.create ? { for arn in var.trusted_cloudfront_distribution_arns : arn => arn } : {}
+
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.this[0].function_name
+  invoked_via_function_url = true
+  principal                = "cloudfront.amazonaws.com"
+  source_arn               = each.value
+  statement_id             = format("AllowCloudFrontInvoke%s", substr(md5(each.value), 0, 12))
 }

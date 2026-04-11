@@ -7,9 +7,42 @@ variable "cors_allow_origins" {
   type        = list(string)
 }
 
+variable "cloudfront_price_class" {
+  default     = "PriceClass_100"
+  description = "Price class for the CloudFront distribution that fronts the contact form endpoint."
+  type        = string
+
+  validation {
+    condition = contains([
+      "PriceClass_All",
+      "PriceClass_200",
+      "PriceClass_100",
+    ], var.cloudfront_price_class)
+    error_message = "cloudfront_price_class must be one of: PriceClass_100, PriceClass_200, PriceClass_All."
+  }
+}
+
 variable "create" {
   default     = true
   description = "Enable/disable the creation of all resources."
+  type        = bool
+}
+
+variable "create_cloudfront_distribution" {
+  default     = true
+  description = "Create a CloudFront distribution in front of the Lambda Function URL so the public endpoint can be protected by AWS WAF and the raw function URL can remain private to CloudFront."
+  type        = bool
+}
+
+variable "allow_all_cloudfront_distributions" {
+  default     = false
+  description = "Allow any CloudFront distribution to invoke the Lambda Function URL with SigV4-signed requests. This is useful when integrating with another CloudFront distribution in the same Terraform apply and its ARN is not available yet. Prefer trusted_cloudfront_distribution_arns when possible."
+  type        = bool
+}
+
+variable "create_waf" {
+  default     = true
+  description = "Create a secure-by-default AWS WAF web ACL for the public CloudFront distribution. The CloudFront-scope web ACL is managed in us-east-1 internally, as required by AWS."
   type        = bool
 }
 
@@ -42,6 +75,17 @@ variable "enable_powertools_development_mode" {
   default     = false
   description = "Enable Powertools development mode, debug logging, and Powertools event logging for the Lambda function."
   type        = bool
+}
+
+variable "enable_waf_bot_control" {
+  default     = false
+  description = "Enable the AWS Managed Bot Control rule group on the module-managed WAF. This improves abuse resistance but incurs additional AWS WAF charges."
+  type        = bool
+
+  validation {
+    condition     = !var.enable_waf_bot_control || var.create_waf
+    error_message = "enable_waf_bot_control can only be enabled when create_waf is true."
+  }
 }
 
 variable "enable_tracing" {
@@ -149,4 +193,48 @@ variable "tags" {
   default     = {}
   description = "Tags to be applied to all applicable resources."
   type        = map(string)
+}
+
+variable "trusted_cloudfront_distribution_arns" {
+  default     = []
+  description = "Existing CloudFront distribution ARNs that should be allowed to invoke the Lambda Function URL when you are routing contact-form traffic through another distribution, such as unfunco/static-website/aws."
+  type        = list(string)
+
+  validation {
+    condition = alltrue([
+      for arn in var.trusted_cloudfront_distribution_arns :
+      can(regex("^arn:[^:]+:cloudfront::[0-9]{12}:distribution/[A-Z0-9]+$", arn))
+    ])
+    error_message = "trusted_cloudfront_distribution_arns must contain valid CloudFront distribution ARNs."
+  }
+}
+
+variable "waf_rate_limit" {
+  default     = 100
+  description = "Maximum number of requests allowed from a single IP address in a rolling 5-minute window before the module-managed AWS WAF blocks it."
+  type        = number
+
+  validation {
+    condition     = floor(var.waf_rate_limit) == var.waf_rate_limit && var.waf_rate_limit >= 10
+    error_message = "waf_rate_limit must be a whole number greater than or equal to 10."
+  }
+}
+
+variable "waf_web_acl_arn" {
+  default     = null
+  description = "Existing CLOUDFRONT-scope AWS WAF web ACL ARN to associate with the CloudFront distribution instead of creating one."
+  type        = string
+
+  validation {
+    condition     = var.waf_web_acl_arn == null || var.create_cloudfront_distribution
+    error_message = "waf_web_acl_arn can only be used when create_cloudfront_distribution is true."
+  }
+
+  validation {
+    condition = (
+      var.waf_web_acl_arn == null ||
+      can(regex("^arn:[^:]+:wafv2:us-east-1:[0-9]{12}:global/webacl/.+$", var.waf_web_acl_arn))
+    )
+    error_message = "waf_web_acl_arn must be a CLOUDFRONT-scope WAFv2 web ACL ARN in us-east-1."
+  }
 }
