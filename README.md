@@ -30,7 +30,7 @@ provider "aws" {
 
 module "contact_form" {
   source  = "unfunco/contact-form/aws"
-  version = "0.1.0"
+  version = "0.2.0"
 
   email_recipients = ["hello@example.com"]
   ses_source_email = "no-reply@example.com"
@@ -56,7 +56,7 @@ output "contact_form_url" {
 ```terraform
 module "contact_form" {
   source  = "unfunco/contact-form/aws"
-  version = "0.1.0"
+  version = "0.2.0"
 
   name                           = "unfunco-contact-form"
   create_cloudfront_distribution = false
