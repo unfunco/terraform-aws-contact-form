@@ -3,9 +3,6 @@
 
 mock_provider "archive" {}
 mock_provider "aws" {}
-mock_provider "aws" {
-  alias = "us_east_1"
-}
 
 run "kebab_case_name_produces_kebab_case_suffixes" {
   command = plan

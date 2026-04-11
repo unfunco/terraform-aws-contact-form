@@ -208,8 +208,8 @@ resource "aws_lambda_function_url" "this" {
 }
 
 resource "aws_wafv2_web_acl" "this" {
-  provider = aws.us_east_1
-  count    = local.create_managed_waf ? 1 : 0
+  count  = local.create_managed_waf ? 1 : 0
+  region = "us-east-1"
 
   name        = local.kebab ? format("%s-web-acl", var.name) : format("%sWebAcl", var.name)
   description = format("Protects the public CloudFront distribution for the %s contact form endpoint.", local.function_name)
