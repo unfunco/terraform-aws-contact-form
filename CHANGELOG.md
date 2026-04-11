@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/unfunco/terraform-aws-contact-form/compare/v0.1.0...v0.2.0) (2026-04-11)
+
+
+### 💡 New features
+
+* Add an optional WAF to improve security ([#9](https://github.com/unfunco/terraform-aws-contact-form/issues/9)) ([6aa6e9f](https://github.com/unfunco/terraform-aws-contact-form/commit/6aa6e9fbfcfac7208c755fa8ee8a1847ba24ea94))
+* Allow contact fields and email templates to be configured ([#8](https://github.com/unfunco/terraform-aws-contact-form/issues/8)) ([a6bbd16](https://github.com/unfunco/terraform-aws-contact-form/commit/a6bbd1623f010b27a5160e3eb0c16691f7ec7471))
+* Compute the correct case for derived names ([#6](https://github.com/unfunco/terraform-aws-contact-form/issues/6)) ([abcd275](https://github.com/unfunco/terraform-aws-contact-form/commit/abcd2759cb9c8dc93c00ba38f1ba3a994a61dec8))
+
+
+### 🐛 Bug fixes
+
+* Add Lambda concurrency and payload limits ([#10](https://github.com/unfunco/terraform-aws-contact-form/issues/10)) ([6090ea4](https://github.com/unfunco/terraform-aws-contact-form/commit/6090ea45a643b079bb4a9aedb42b349e825bb092))
+
+
+### 🧹 Miscellaneous
+
+* Add refactor release notes and registry badge ([#12](https://github.com/unfunco/terraform-aws-contact-form/issues/12)) ([3b9afd4](https://github.com/unfunco/terraform-aws-contact-form/commit/3b9afd486329281cf42cd8b9657d905b9c4007dc))
+* Use WAF region argument and expand examples ([#11](https://github.com/unfunco/terraform-aws-contact-form/issues/11)) ([5342f01](https://github.com/unfunco/terraform-aws-contact-form/commit/5342f011236d2eedd47441bf2f8ea290b96b2f65))
+
 ## 0.1.0 (2026-03-21)
 
 
