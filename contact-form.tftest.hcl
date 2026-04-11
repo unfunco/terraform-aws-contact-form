@@ -90,6 +90,20 @@ run "kebab_case_name_produces_kebab_case_suffixes" {
   }
 
   assert {
+    condition     = aws_lambda_function.this[0].reserved_concurrent_executions == 5
+    error_message = "Expected the default reserved concurrency limit to be 5."
+  }
+
+  assert {
+    condition = (
+      aws_lambda_function.this[0].environment[0].variables["MAX_REQUEST_BODY_SIZE"] == "16384" &&
+      aws_lambda_function.this[0].environment[0].variables["MAX_FIELD_COUNT"] == "10" &&
+      aws_lambda_function.this[0].environment[0].variables["MAX_FIELD_LENGTH"] == "2000"
+    )
+    error_message = "Expected the default Lambda payload limit environment variables to be set."
+  }
+
+  assert {
     condition     = aws_wafv2_web_acl.this[0].scope == "CLOUDFRONT"
     error_message = "Expected the default WAF scope to be 'CLOUDFRONT'."
   }

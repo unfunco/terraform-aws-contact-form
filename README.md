@@ -101,9 +101,11 @@ curl -X POST https://<> \
 
 Successful submissions return `200 OK` with a JSON confirmation message.
 Validation failures return a JSON `4xx` response describing the problem.
+By default, the Lambda reserves 5 concurrent executions and rejects decoded
+request bodies over 16 KiB, submissions with more than 10 fields, or any field
+value longer than 2,000 characters.
 
 <!-- BEGIN_TF_DOCS -->
-
 ### Resources
 
 | Name | Type |
@@ -155,8 +157,12 @@ Validation failures return a JSON `4xx` response describing the problem.
 | kms\_key\_arn | ARN of the KMS key to use for encrypting the log group. | `string` | `null` | no |
 | log\_level | Application log level for Lambda and Powertools. Valid values: TRACE, DEBUG, INFO, WARN, ERROR, FATAL. DEBUG also enables Powertools event logging. | `string` | `"INFO"` | no |
 | log\_retention\_in\_days | Number of days to retain logs in CloudWatch Log Group. | `number` | `365` | no |
+| max\_field\_count | Maximum number of fields accepted in a single submission, including hidden or extra fields. | `number` | `10` | no |
+| max\_field\_length | Maximum number of characters allowed in any submitted field value. | `number` | `2000` | no |
+| max\_request\_body\_size | Maximum size, in bytes, allowed for the decoded request body. | `number` | `16384` | no |
 | memory\_size | Amount of memory, in MB, allocated to the Lambda function. | `number` | `128` | no |
 | name | Name to use for the Lambda function and related resources. | `string` | `"contact-form"` | no |
+| reserved\_concurrent\_executions | Reserved concurrent executions for the Lambda function to cap abuse-driven parallelism. Set to -1 to remove the limit. | `number` | `5` | no |
 | ses\_source\_email | Verified SES sender address used for notifications. Required when email\_recipients is not empty. | `string` | `null` | no |
 | tags | Tags to be applied to all applicable resources. | `map(string)` | `{}` | no |
 | trusted\_cloudfront\_distribution\_arns | Existing CloudFront distribution ARNs that should be allowed to invoke the Lambda Function URL when you are routing contact-form traffic through another distribution, such as unfunco/static-website/aws. | `list(string)` | `[]` | no |

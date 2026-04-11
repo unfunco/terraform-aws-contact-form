@@ -3,13 +3,30 @@
 
 import base64
 import binascii
-import boto3
 import html
 import json
 import os
 import re
 from string import Template
 from urllib.parse import parse_qs
+
+
+def _env_int(name, default, *, minimum=1):
+    raw_value = os.getenv(name)
+
+    if raw_value in (None, ""):
+        return default
+
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer.") from exc
+
+    if value < minimum:
+        raise RuntimeError(f"{name} must be greater than or equal to {minimum}.")
+
+    return value
+
 
 ENABLE_LOGGING = os.getenv("ENABLE_LOGGING", "false").lower() == "true"
 ENABLE_TRACING = os.getenv("ENABLE_TRACING", "false").lower() == "true"
@@ -21,6 +38,13 @@ CONTACT_FORM_FIELDS = json.loads(
     )
 )
 FIELD_NAMES = tuple(field["name"] for field in CONTACT_FORM_FIELDS)
+MAX_FIELD_COUNT = _env_int(
+    "MAX_FIELD_COUNT",
+    max(len(FIELD_NAMES), 1),
+    minimum=max(len(FIELD_NAMES), 1),
+)
+MAX_FIELD_LENGTH = _env_int("MAX_FIELD_LENGTH", 2000)
+MAX_REQUEST_BODY_SIZE = _env_int("MAX_REQUEST_BODY_SIZE", 16384, minimum=1024)
 EMAIL_TEMPLATE = os.getenv("EMAIL_TEMPLATE")
 
 if ENABLE_LOGGING:
@@ -66,6 +90,14 @@ if EMAIL_RECIPIENTS_SSM_PARAMETER_ARN:
         raise RuntimeError(
             "SES_SOURCE_EMAIL must be set when email notifications are enabled."
         )
+
+    try:
+        import boto3
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "EMAIL_RECIPIENTS_SSM_PARAMETER_ARN is set but boto3 is unavailable. "
+            "Ensure the Lambda runtime includes boto3 or bundle it explicitly."
+        ) from exc
 
     email_recipients = [
         recipient.strip()
@@ -114,9 +146,26 @@ def _decode_request_body(event):
 
     if event.get("isBase64Encoded"):
         try:
-            return base64.b64decode(body).decode("utf-8")
+            decoded = base64.b64decode(body, validate=True)
         except (binascii.Error, UnicodeDecodeError) as exc:
             raise ContactFormRequestError("Request body could not be decoded.") from exc
+
+        if len(decoded) > MAX_REQUEST_BODY_SIZE:
+            raise ContactFormRequestError(
+                f"Request body must not exceed {MAX_REQUEST_BODY_SIZE} bytes.",
+                status_code=413,
+            )
+
+        try:
+            return decoded.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ContactFormRequestError("Request body could not be decoded.") from exc
+
+    if len(body.encode("utf-8")) > MAX_REQUEST_BODY_SIZE:
+        raise ContactFormRequestError(
+            f"Request body must not exceed {MAX_REQUEST_BODY_SIZE} bytes.",
+            status_code=413,
+        )
 
     return body
 
@@ -189,19 +238,45 @@ def _validate_contact_form(payload):
     errors = []
     cleaned_payload = {}
 
+    if len(payload) > MAX_FIELD_COUNT:
+        errors.append(f"Request must not include more than {MAX_FIELD_COUNT} fields.")
+
+    for field_name, value in payload.items():
+        if not isinstance(field_name, str) or not field_name:
+            errors.append("Field names must be non-empty strings.")
+            continue
+
+        if not isinstance(value, str):
+            errors.append(f"{field_name} must be a string.")
+            continue
+
+        if len(value) > MAX_FIELD_LENGTH:
+            errors.append(
+                f"{field_name} must not exceed {MAX_FIELD_LENGTH} characters."
+            )
+
     for field in CONTACT_FORM_FIELDS:
         field_name = field["name"]
         field_type = field["type"]
         value = payload.get(field_name)
 
-        if not isinstance(value, str) or not value.strip():
+        if value is None:
+            errors.append(f"{field_name} is required.")
+            continue
+
+        if not isinstance(value, str):
+            continue
+
+        if not value.strip():
             errors.append(f"{field_name} is required.")
             continue
 
         cleaned_value = value.strip()
         cleaned_payload[field_name] = cleaned_value
 
-        if field_type == "email" and not EMAIL_PATTERN.fullmatch(cleaned_value):
+        if field_type == "email" and (
+            len(cleaned_value) > 320 or not EMAIL_PATTERN.fullmatch(cleaned_value)
+        ):
             errors.append(f"{field_name} must be a valid email address.")
 
     if errors:

@@ -18,14 +18,18 @@ locals {
   function_name = var.name
   kebab         = can(regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$", var.name))
 
-  lambda_architecture = "arm64"
+  lambda_architecture    = "arm64"
+  lambda_max_field_count = max(var.max_field_count, length(var.fields))
 
   lambda_environment_vars = merge(
     var.environment_variables,
     local.powertools_environment_vars,
     {
-      CONTACT_FORM_FIELDS = jsonencode(var.fields)
-      EMAIL_TEMPLATE      = local.email_template
+      CONTACT_FORM_FIELDS   = jsonencode(var.fields)
+      EMAIL_TEMPLATE        = local.email_template
+      MAX_FIELD_COUNT       = tostring(local.lambda_max_field_count)
+      MAX_FIELD_LENGTH      = tostring(var.max_field_length)
+      MAX_REQUEST_BODY_SIZE = tostring(var.max_request_body_size)
     },
     var.create && local.email_notifications_enabled ? {
       EMAIL_RECIPIENTS_SSM_PARAMETER_ARN = aws_ssm_parameter.email_recipients[0].arn
@@ -131,19 +135,20 @@ resource "aws_ssm_parameter" "email_recipients" {
 resource "aws_lambda_function" "this" {
   count = var.create ? 1 : 0
 
-  architectures    = [local.lambda_architecture]
-  description      = "Contact form handler."
-  filename         = data.archive_file.lambda[0].output_path
-  function_name    = local.function_name
-  handler          = "handler.lambda_handler"
-  kms_key_arn      = var.kms_key_arn
-  memory_size      = var.memory_size
-  package_type     = "Zip"
-  role             = aws_iam_role.this[0].arn
-  runtime          = local.lambda_python_runtime
-  source_code_hash = data.archive_file.lambda[0].output_base64sha256
-  tags             = local.default_tags
-  timeout          = 3
+  architectures                  = [local.lambda_architecture]
+  description                    = "Contact form handler."
+  filename                       = data.archive_file.lambda[0].output_path
+  function_name                  = local.function_name
+  handler                        = "handler.lambda_handler"
+  kms_key_arn                    = var.kms_key_arn
+  memory_size                    = var.memory_size
+  package_type                   = "Zip"
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+  role                           = aws_iam_role.this[0].arn
+  runtime                        = local.lambda_python_runtime
+  source_code_hash               = data.archive_file.lambda[0].output_base64sha256
+  tags                           = local.default_tags
+  timeout                        = 3
 
   dynamic "environment" {
     for_each = length(local.lambda_environment_vars) > 0 ? [1] : []
