@@ -1,6 +1,7 @@
-# Terraform module
+# AWS Contact Form Terraform Module
 
-[![CI](https://github.com/unfunco/template-terraform-module/actions/workflows/ci.yaml/badge.svg)](https://github.com/unfunco/template-terraform-module/actions/workflows/ci.yaml)
+[![CI](https://github.com/unfunco/terraform-aws-contact-form/actions/workflows/ci.yaml/badge.svg)](https://github.com/unfunco/terraform-aws-contact-form/actions/workflows/ci.yaml)
+[![Terraform Registry](https://img.shields.io/badge/Terraform%20Registry-unfunco%2Fcontact--form-blue?logo=terraform)](https://registry.terraform.io/modules/unfunco/contact-form/aws)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE.md)
 
 A Terraform module for an AWS Lambda contact form endpoint fronted by CloudFront
