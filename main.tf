@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 locals {
-  default_tags = merge({ "terraform-module" = "unfunco/terraform-aws-contact-form" }, var.tags)
+  default_tags = merge({
+    "terraform-module" = "unfunco/terraform-aws-contact-form"
+  }, var.tags)
 
   email_notifications_enabled = length(var.email_recipients) > 0
+  email_template              = coalesce(var.email_template, file("${path.module}/templates/email.html"))
   enable_powertools           = var.enable_logging || var.enable_tracing
 
   function_name = var.name
@@ -15,6 +18,10 @@ locals {
   lambda_environment_vars = merge(
     var.environment_variables,
     local.powertools_environment_vars,
+    {
+      CONTACT_FORM_FIELDS = jsonencode(var.fields)
+      EMAIL_TEMPLATE      = local.email_template
+    },
     var.create && local.email_notifications_enabled ? {
       EMAIL_RECIPIENTS_SSM_PARAMETER_ARN = aws_ssm_parameter.email_recipients[0].arn
       SES_SOURCE_EMAIL                   = var.ses_source_email
