@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Daniel Morris <daniel@honestempire.com>
 // SPDX-License-Identifier: MIT
 
-variable "cors_allow_origins" {
-  default     = ["*"]
-  description = "List of allowed origins for CORS."
-  type        = list(string)
+variable "allow_all_cloudfront_distributions" {
+  default     = false
+  description = "Allow any CloudFront distribution to invoke the Lambda Function URL with SigV4-signed requests. This is useful when integrating with another CloudFront distribution in the same Terraform apply and its ARN is not available yet. Prefer trusted_cloudfront_distribution_arns when possible."
+  type        = bool
 }
 
 variable "cloudfront_price_class" {
@@ -22,6 +22,12 @@ variable "cloudfront_price_class" {
   }
 }
 
+variable "cors_allow_origins" {
+  default     = ["*"]
+  description = "List of allowed origins for CORS."
+  type        = list(string)
+}
+
 variable "create" {
   default     = true
   description = "Enable/disable the creation of all resources."
@@ -31,12 +37,6 @@ variable "create" {
 variable "create_cloudfront_distribution" {
   default     = true
   description = "Create a CloudFront distribution in front of the Lambda Function URL so the public endpoint can be protected by AWS WAF and the raw function URL can remain private to CloudFront."
-  type        = bool
-}
-
-variable "allow_all_cloudfront_distributions" {
-  default     = false
-  description = "Allow any CloudFront distribution to invoke the Lambda Function URL with SigV4-signed requests. This is useful when integrating with another CloudFront distribution in the same Terraform apply and its ARN is not available yet. Prefer trusted_cloudfront_distribution_arns when possible."
   type        = bool
 }
 
@@ -77,6 +77,12 @@ variable "enable_powertools_development_mode" {
   type        = bool
 }
 
+variable "enable_tracing" {
+  default     = false
+  description = "Enable AWS X-Ray tracing and Powertools tracer support for the Lambda function."
+  type        = bool
+}
+
 variable "enable_waf_bot_control" {
   default     = false
   description = "Enable the AWS Managed Bot Control rule group on the module-managed WAF. This improves abuse resistance but incurs additional AWS WAF charges."
@@ -86,12 +92,6 @@ variable "enable_waf_bot_control" {
     condition     = !var.enable_waf_bot_control || var.create_waf
     error_message = "enable_waf_bot_control can only be enabled when create_waf is true."
   }
-}
-
-variable "enable_tracing" {
-  default     = false
-  description = "Enable AWS X-Ray tracing and Powertools tracer support for the Lambda function."
-  type        = bool
 }
 
 variable "environment_variables" {
@@ -161,6 +161,39 @@ variable "log_retention_in_days" {
   type        = number
 }
 
+variable "max_field_count" {
+  default     = 10
+  description = "Maximum number of fields accepted in a single submission, including hidden or extra fields."
+  type        = number
+
+  validation {
+    condition     = floor(var.max_field_count) == var.max_field_count && var.max_field_count >= 1
+    error_message = "max_field_count must be a whole number greater than or equal to 1."
+  }
+}
+
+variable "max_field_length" {
+  default     = 2000
+  description = "Maximum number of characters allowed in any submitted field value."
+  type        = number
+
+  validation {
+    condition     = floor(var.max_field_length) == var.max_field_length && var.max_field_length >= 1
+    error_message = "max_field_length must be a whole number greater than or equal to 1."
+  }
+}
+
+variable "max_request_body_size" {
+  default     = 16384
+  description = "Maximum size, in bytes, allowed for the decoded request body."
+  type        = number
+
+  validation {
+    condition     = floor(var.max_request_body_size) == var.max_request_body_size && var.max_request_body_size >= 1024
+    error_message = "max_request_body_size must be a whole number greater than or equal to 1024."
+  }
+}
+
 variable "memory_size" {
   default     = 128
   description = "Amount of memory, in MB, allocated to the Lambda function."
@@ -171,6 +204,19 @@ variable "name" {
   default     = "contact-form"
   description = "Name to use for the Lambda function and related resources."
   type        = string
+}
+
+variable "reserved_concurrent_executions" {
+  default     = 5
+  description = "Reserved concurrent executions for the Lambda function to cap abuse-driven parallelism. Set to -1 to remove the limit."
+  type        = number
+
+  validation {
+    condition = floor(var.reserved_concurrent_executions) == var.reserved_concurrent_executions && (
+      var.reserved_concurrent_executions == -1 || var.reserved_concurrent_executions >= 1
+    )
+    error_message = "reserved_concurrent_executions must be a whole number greater than or equal to 1, or -1 to remove the limit."
+  }
 }
 
 variable "ses_source_email" {
