@@ -129,6 +129,18 @@ data "aws_iam_policy_document" "this" {
   }
 }
 
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  count = var.create ? 1 : 0
+
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
+  count = var.create ? 1 : 0
+
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 data "archive_file" "lambda" {
   count = var.create ? 1 : 0
 
