@@ -4,15 +4,24 @@
 import base64
 import binascii
 import boto3
+import html
 import json
 import os
 import re
+from string import Template
 from urllib.parse import parse_qs
 
 ENABLE_LOGGING = os.getenv("ENABLE_LOGGING", "false").lower() == "true"
 ENABLE_TRACING = os.getenv("ENABLE_TRACING", "false").lower() == "true"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+$")
-REQUIRED_CONTACT_FIELDS = ("name", "email", "message")
+CONTACT_FORM_FIELDS = json.loads(
+    os.getenv(
+        "CONTACT_FORM_FIELDS",
+        '[{"name":"name","type":"text"},{"name":"email","type":"email"},{"name":"message","type":"textarea"}]',
+    )
+)
+FIELD_NAMES = tuple(field["name"] for field in CONTACT_FORM_FIELDS)
+EMAIL_TEMPLATE = os.getenv("EMAIL_TEMPLATE")
 
 if ENABLE_LOGGING:
     try:
@@ -140,8 +149,8 @@ def _parse_form_body(body):
 
 
 def _parse_request_payload(event):
-    if any(field in event for field in REQUIRED_CONTACT_FIELDS) and "body" not in event:
-        return {field: event.get(field) for field in REQUIRED_CONTACT_FIELDS}
+    if any(field in event for field in FIELD_NAMES) and "body" not in event:
+        return {field: event.get(field) for field in FIELD_NAMES}
 
     body = _decode_request_body(event)
     if not body.strip():
@@ -180,18 +189,20 @@ def _validate_contact_form(payload):
     errors = []
     cleaned_payload = {}
 
-    for field in REQUIRED_CONTACT_FIELDS:
-        value = payload.get(field)
+    for field in CONTACT_FORM_FIELDS:
+        field_name = field["name"]
+        field_type = field["type"]
+        value = payload.get(field_name)
 
         if not isinstance(value, str) or not value.strip():
-            errors.append(f"{field} is required.")
+            errors.append(f"{field_name} is required.")
             continue
 
-        cleaned_payload[field] = value.strip()
+        cleaned_value = value.strip()
+        cleaned_payload[field_name] = cleaned_value
 
-    email = cleaned_payload.get("email")
-    if email and not EMAIL_PATTERN.fullmatch(email):
-        errors.append("email must be a valid email address.")
+        if field_type == "email" and not EMAIL_PATTERN.fullmatch(cleaned_value):
+            errors.append(f"{field_name} must be a valid email address.")
 
     if errors:
         raise ContactFormRequestError(
@@ -202,27 +213,65 @@ def _validate_contact_form(payload):
     return cleaned_payload
 
 
+def _build_html_fields(contact_form):
+    html_parts = []
+
+    for field in CONTACT_FORM_FIELDS:
+        label = field["name"].replace("_", " ").title()
+        value = html.escape(contact_form.get(field["name"], ""))
+
+        if field["type"] == "email":
+            html_parts.append(
+                f'<p><strong>{label}:</strong> <a href="mailto:{value}">{value}</a></p>'
+            )
+        elif field["type"] == "textarea":
+            html_parts.extend(
+                [
+                    f"<p><strong>{label}:</strong></p>",
+                    f"<pre>{value}</pre>",
+                ]
+            )
+        else:
+            html_parts.append(f"<p><strong>{label}:</strong> {value}</p>")
+
+    return "\n  ".join(html_parts)
+
+
 def _build_email_message(contact_form):
-    return {
-        "Subject": {
-            "Charset": "UTF-8",
-            "Data": f"Contact Form Submission from {contact_form['name']}",
-        },
+    subject_value = contact_form.get("name")
+    if not subject_value:
+        text_fields = [f["name"] for f in CONTACT_FORM_FIELDS if f["type"] == "text"]
+        subject_value = contact_form.get(text_fields[0]) if text_fields else None
+
+    subject = (
+        f"Contact Form Submission from {subject_value}"
+        if subject_value
+        else "Contact Form Submission"
+    )
+
+    text_parts = []
+    for field in CONTACT_FORM_FIELDS:
+        label = field["name"].replace("_", " ").title()
+        value = contact_form.get(field["name"], "")
+        if field["type"] == "textarea":
+            text_parts.extend(["", f"{label}:", value])
+        else:
+            text_parts.append(f"{label}: {value}")
+
+    message = {
+        "Subject": {"Charset": "UTF-8", "Data": subject},
         "Body": {
-            "Text": {
-                "Charset": "UTF-8",
-                "Data": "\n".join(
-                    [
-                        f"Name: {contact_form['name']}",
-                        f"Email: {contact_form['email']}",
-                        "",
-                        "Message:",
-                        contact_form["message"],
-                    ]
-                ),
-            }
+            "Text": {"Charset": "UTF-8", "Data": "\n".join(text_parts)},
         },
     }
+
+    if EMAIL_TEMPLATE:
+        escaped = {k: html.escape(v) for k, v in contact_form.items()}
+        escaped["fields_html"] = _build_html_fields(contact_form)
+        html_body = Template(EMAIL_TEMPLATE).safe_substitute(escaped)
+        message["Body"]["Html"] = {"Charset": "UTF-8", "Data": html_body}
+
+    return message
 
 
 def _handle_request(event, _context):
@@ -260,11 +309,16 @@ def _handle_request(event, _context):
 
     if ses is not None and email_recipients:
         try:
+            reply_to = [
+                contact_form[f["name"]]
+                for f in CONTACT_FORM_FIELDS
+                if f["type"] == "email" and f["name"] in contact_form
+            ]
             ses.send_email(
                 Source=SES_SOURCE_EMAIL,
                 Destination={"ToAddresses": email_recipients},
                 Message=_build_email_message(contact_form),
-                ReplyToAddresses=[contact_form["email"]],
+                ReplyToAddresses=reply_to,
             )
             if logger:
                 logger.info("Email notification sent successfully.")

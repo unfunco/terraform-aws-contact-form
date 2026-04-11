@@ -26,6 +26,12 @@ variable "email_recipients" {
   }
 }
 
+variable "email_template" {
+  default     = null
+  description = "Custom HTML email template content. Use $field_name or $fields_html for variable substitution with form values. When null, the default template is used."
+  type        = string
+}
+
 variable "enable_logging" {
   default     = true
   description = "Enable JSON application logging configuration and Powertools logger support for the Lambda function."
@@ -48,6 +54,43 @@ variable "environment_variables" {
   default     = {}
   description = "Additional environment variables to set on the Lambda function."
   type        = map(string)
+}
+
+variable "fields" {
+  default = [
+    { name = "name", type = "text" },
+    { name = "email", type = "email" },
+    { name = "message", type = "textarea" },
+  ]
+  description = "List of form fields to accept and validate. Supported types: text, email, textarea."
+  type = list(object({
+    name = string
+    type = string
+  }))
+
+  validation {
+    condition     = length(var.fields) > 0
+    error_message = "At least one field must be defined."
+  }
+
+  validation {
+    condition = alltrue([
+      for field in var.fields : contains(["text", "email", "textarea"], field.type)
+    ])
+    error_message = "Field type must be one of: text, email, textarea."
+  }
+
+  validation {
+    condition     = length(var.fields) == length(distinct([for field in var.fields : field.name]))
+    error_message = "Field names must be unique."
+  }
+
+  validation {
+    condition = alltrue([
+      for field in var.fields : can(regex("^[a-z][a-z0-9_]*$", field.name))
+    ])
+    error_message = "Field names must start with a lowercase letter and contain only lowercase letters, digits, and underscores."
+  }
 }
 
 variable "kms_key_arn" {
