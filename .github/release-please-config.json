@@ -17,6 +17,11 @@
           "hidden": false,
           "section": "🧹 Miscellaneous",
           "type": "chore"
+        },
+        {
+          "hidden": false,
+          "section": "🧹 Miscellaneous",
+          "type": "refactor"
         }
       ],
       "draft": false,
