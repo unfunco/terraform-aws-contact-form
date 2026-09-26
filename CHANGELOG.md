@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.1](https://github.com/unfunco/terraform-aws-contact-form/compare/v0.2.0...v0.2.1) (2026-09-26)
+
+
+### 🧹 Miscellaneous
+
+* Adopt shared Terraform verification ([#25](https://github.com/unfunco/terraform-aws-contact-form/issues/25)) ([d3890b3](https://github.com/unfunco/terraform-aws-contact-form/commit/d3890b3c461f0ccc504753ed1380edb92fbf61d6))
+* Adopt unfunco/meta v0.2.0 workflows ([#26](https://github.com/unfunco/terraform-aws-contact-form/issues/26)) ([5305d51](https://github.com/unfunco/terraform-aws-contact-form/commit/5305d51487fcc6c23b81d659c30c6c4e778e4437))
+* Bump actions/checkout from 6.0.2 to 7.0.1 ([#24](https://github.com/unfunco/terraform-aws-contact-form/issues/24)) ([d790d80](https://github.com/unfunco/terraform-aws-contact-form/commit/d790d8065d696bdf0d42a8ecf41e385eecb03b4e))
+* Bump actions/setup-python from 6.2.0 to 7.0.0 ([#23](https://github.com/unfunco/terraform-aws-contact-form/issues/23)) ([5109e79](https://github.com/unfunco/terraform-aws-contact-form/commit/5109e79c419f4432ba52b44f8f4020fb230e05e3))
+* Bump googleapis/release-please-action from 4.4.0 to 4.4.1 ([#15](https://github.com/unfunco/terraform-aws-contact-form/issues/15)) ([1d62345](https://github.com/unfunco/terraform-aws-contact-form/commit/1d62345f9fda0e233f2578162d5dfef649ed71c8))
+* Bump googleapis/release-please-action from 4.4.1 to 5.0.0 ([#16](https://github.com/unfunco/terraform-aws-contact-form/issues/16)) ([06c415d](https://github.com/unfunco/terraform-aws-contact-form/commit/06c415d34009b19490be35e44a01f79b2826d321))
+* Bump hashicorp/setup-terraform from 4.0.0 to 4.0.1 ([#17](https://github.com/unfunco/terraform-aws-contact-form/issues/17)) ([345bb65](https://github.com/unfunco/terraform-aws-contact-form/commit/345bb65e61fbfec0e245e0a2f78e8dc86b0f5b2e))
+* Bump psf/black from 26.3.1 to 26.5.1 ([#19](https://github.com/unfunco/terraform-aws-contact-form/issues/19)) ([257933f](https://github.com/unfunco/terraform-aws-contact-form/commit/257933fbca122d216c87a75e9ca66358ff96d7a5))
+* Pin GitHub Actions ([#13](https://github.com/unfunco/terraform-aws-contact-form/issues/13)) ([b8a1a70](https://github.com/unfunco/terraform-aws-contact-form/commit/b8a1a7015722e87db20c7980babc4a98789fc85c))
+
 ## [0.2.0](https://github.com/unfunco/terraform-aws-contact-form/compare/v0.1.0...v0.2.0) (2026-04-11)
 
 
