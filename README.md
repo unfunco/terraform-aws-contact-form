@@ -12,6 +12,7 @@ and protected by AWS WAF.
 ### Requirements
 
 - [Terraform] 1.14+
+- [AWS provider] 6.67.0+ (6.x)
 
 ### Installation and usage
 
@@ -209,6 +210,7 @@ pull request is merged, a new release will be created.
 © 2026 [Daniel Morris]\
 Made available under the terms of the [MIT License].
 
+[aws provider]: https://registry.terraform.io/providers/hashicorp/aws/latest
 [conventional commit]: https://www.conventionalcommits.org
 [daniel morris]: https://unfun.co
 [mit license]: LICENSE.md
