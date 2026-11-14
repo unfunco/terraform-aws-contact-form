@@ -77,7 +77,7 @@ module "contact_form" {
 ```terraform
 module "unfunco_website" {
   source  = "unfunco/static-website/aws"
-  version = "0.5.0"
+  version = "0.6.0"
 
   domain_name         = "unfun.co"
   cloudfront_web_acl_id = module.contact_form.waf_web_acl_arn
